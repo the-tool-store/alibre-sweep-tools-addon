@@ -6,5 +6,5 @@
    <Menu text="Sweep Tools"/>
    <Description>Sweep Tools</Description> 
    <Workspace type="Always"/>
-   <Property name="Identifier" value="SweepTools"/>
+   <Property name="Identifier" value="{95C7ED4D-9E9B-496B-8DA1-8948D24F9285}"/>
 </AlibreDesignAddOn>

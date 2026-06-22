@@ -38,14 +38,29 @@ FirstFigure = PathSketch.Figures[0]
 Is3DSketch = '3D' in PathSketch.GetType().Name
 
 if hasattr(FirstFigure, 'GetPointAt'): # Spline logic
-  if Is3DSketch:
-    StartPoint3D = FirstFigure.GetPointAt(0.0)
-    NextPoint3D = FirstFigure.GetPointAt(0.001)
-  else:
-    StartPoint2D = FirstFigure.GetPointAt(0.0)
-    NextPoint2D = FirstFigure.GetPointAt(0.001)
-    StartPoint3D = PathSketch.PointtoGlobal(StartPoint2D[0], StartPoint2D[1])
-    NextPoint3D = PathSketch.PointtoGlobal(NextPoint2D[0], NextPoint2D[1])
+  # Sample the spline at the start and at a small parameter delta to get the
+  # start tangent. A closed/looped spline or a near-zero start tangent over a
+  # tiny interval can yield a degenerate direction vector, so try progressively
+  # larger deltas until the direction is non-zero.
+  def SampleDirection(Delta):
+    if Is3DSketch:
+      SP = FirstFigure.GetPointAt(0.0)
+      NP = FirstFigure.GetPointAt(Delta)
+    else:
+      SP2 = FirstFigure.GetPointAt(0.0)
+      NP2 = FirstFigure.GetPointAt(Delta)
+      SP = PathSketch.PointtoGlobal(SP2[0], SP2[1])
+      NP = PathSketch.PointtoGlobal(NP2[0], NP2[1])
+    return SP, NP
+
+  StartPoint3D = None
+  DirectionVector = [0.0, 0.0, 0.0]
+  for Delta in [0.001, 0.01, 0.1, 0.25]:
+    StartPoint3D, NextPoint3D = SampleDirection(Delta)
+    DirectionVector = [NextPoint3D[i] - StartPoint3D[i] for i in range(3)]
+    Magnitude = (DirectionVector[0] ** 2 + DirectionVector[1] ** 2 + DirectionVector[2] ** 2) ** 0.5
+    if Magnitude > 1e-9:
+      break
 else: # Line logic
   if Is3DSketch:
     StartPoint3D = FirstFigure.StartPoint
@@ -55,8 +70,15 @@ else: # Line logic
     NextPoint2D = FirstFigure.EndPoint
     StartPoint3D = PathSketch.PointtoGlobal(StartPoint2D[0], StartPoint2D[1])
     NextPoint3D = PathSketch.PointtoGlobal(NextPoint2D[0], NextPoint2D[1])
+  DirectionVector = [NextPoint3D[i] - StartPoint3D[i] for i in range(3)]
 
-DirectionVector = [NextPoint3D[i] - StartPoint3D[i] for i in range(3)]
+# Validate the direction vector is non-zero before creating the plane;
+# a zero vector makes AddPlane fail or build a malformed plane.
+Magnitude = (DirectionVector[0] ** 2 + DirectionVector[1] ** 2 + DirectionVector[2] ** 2) ** 0.5
+if Magnitude < 1e-9:
+  print "Could not determine a valid sweep direction from the path's start tangent. Aborting."
+  sys.exit()
+
 ProfilePlane = MyPart.AddPlane('SweepProfilePlane', DirectionVector, StartPoint3D)
 
 # --- 3. Create a Single Profile Sketch ---
@@ -71,9 +93,9 @@ elif ProfileTypeIndex == 1: # Square
   ProfileSketch.AddRectangle(-OuterHalf, -OuterHalf, OuterHalf, OuterHalf, False)
 
 # If hollow is checked, draw the inner profile ON THE SAME SKETCH
-if IsHollow and Thickness > 0 and Thickness < (ProfileSize / 2.0):
+if IsHollow and Thickness > 0 and Thickness < ProfileSize:
   if ProfileTypeIndex == 0: # Circle
-    InnerSize = ProfileSize - (Thickness * 2)
+    InnerSize = ProfileSize - Thickness
     ProfileSketch.AddCircle(0, 0, InnerSize, False)
   elif ProfileTypeIndex == 1: # Square
     InnerSize = ProfileSize - (Thickness * 2)
