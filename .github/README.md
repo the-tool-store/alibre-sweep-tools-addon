@@ -22,7 +22,6 @@
   - Where things live
     - `source/` holds the VB.NET add-on, the IronPython dialog scripts, and a standalone `PipeTool.py` version you can run from Alibre Script.
     - `documentation/` holds the changelog and reference notes.
-    - `reviews/` holds dated code reviews.
     - `submodules/` holds the Alibre Script ADK.
   - Good to know
     - The scripts run under IronPython 2.7, so keep them compatible with Python 2.7.
